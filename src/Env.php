@@ -22,8 +22,10 @@ class Env
 
     protected $names = [];
 
-    public function __construct(array $files)
+    public function __construct($files)
     {
+        $files = (array) $files;
+
         foreach ($files as $v) {
             if (\is_dir($v)) {
                 $v .= DIRECTORY_SEPARATOR . self::FILE;

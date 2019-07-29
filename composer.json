@@ -28,7 +28,6 @@
   ],
   "require": {
     "php": ">=7.1.3",
-    "hail/path": "^0.8.0",
     "hail/arrays": "^0.8.0",
     "hail/optimize": "^0.8.0",
     "hail/serializer": "^0.8.0"
