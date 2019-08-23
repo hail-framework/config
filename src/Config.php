@@ -9,18 +9,16 @@ use Hail\Serializer\Yaml;
 use Hail\Arrays\{ArrayTrait, Dot};
 
 /**
- * Class Php
+ * Class Config
  *
  * @package Hail\Config
  */
 class Config implements \ArrayAccess
 {
-    use OptimizeTrait;
     use ArrayTrait;
+    use OptimizeTrait;
 
     /**
-     * All of the configuration items.
-     *
      * @var array
      */
     private $items = [];
@@ -49,7 +47,7 @@ class Config implements \ArrayAccess
 
         $this->items = new Dot([]);
 
-        static::optimizePrefix(\strlen($folder) > 32 ? \md5($folder) : $folder);
+        static::optimizePrefix($folder);
         static::optimizeReader(['.yml', '.yaml'], [$this, 'loadYaml']);
     }
 
@@ -141,7 +139,7 @@ class Config implements \ArrayAccess
 
         $dir = $this->cacheFolder;
         $filename = \basename($file);
-        $cache = $dir . DIRECTORY_SEPARATOR . substr($filename, 0, -\strlen($ext)) . '.php';
+        $cache = $dir . DIRECTORY_SEPARATOR . \substr($filename, 0, -\strlen($ext)) . '.php';
 
         if (@\filemtime($cache) < \filemtime($file)) {
             $content = $this->decodeYaml($file);
@@ -167,7 +165,7 @@ class Config implements \ArrayAccess
         }
 
         return $this->yaml->decode(
-            file_get_contents($file)
+            \file_get_contents($file)
         );
     }
 
