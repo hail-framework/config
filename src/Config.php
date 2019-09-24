@@ -6,7 +6,7 @@ namespace Hail\Config;
 
 use Hail\Optimize\OptimizeTrait;
 use Hail\Serializer\Yaml;
-use Hail\Arrays\{ArrayTrait, Dot};
+use Hail\Arrays\{ArrayTrait, Arrays, Dot};
 
 /**
  * Class Config
@@ -33,7 +33,6 @@ class Config implements \ArrayAccess
      */
     private $folder;
     private $cacheFolder;
-    private $arrays;
     private $yaml;
 
     public function __construct(string $folder, string $cacheFolder = null)
@@ -189,7 +188,7 @@ class Config implements \ArrayAccess
             $pad = \str_repeat("\t", $level);
         }
 
-        $isAssoc = $this->arrays->isAssoc($array);
+        $isAssoc = Arrays::isAssoc($array);
 
         $ret = '[' . "\n";
         foreach ($array as $k => $v) {
