@@ -68,10 +68,18 @@ class Config implements \ArrayAccess
     /**
      * @param string $name
      *
-     * @return string|null
+     * @return string|null|Env
      */
-    public function env(string $name): ?string
+    public function env(string $name = null)
     {
+        if ($name === null) {
+            return $this->env;
+        }
+
+        if ($this->env === null) {
+            return Env::getenv($name);
+        }
+
         return $this->env->get($name);
     }
 

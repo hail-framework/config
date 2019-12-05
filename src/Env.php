@@ -72,6 +72,11 @@ class Env
      */
     public function get(string $name): ?string
     {
+        return static::getenv($name);
+    }
+
+    public static function getenv(string $name): ?string
+    {
         if (isset($_ENV[$name])) {
             return $_ENV[$name];
         }
