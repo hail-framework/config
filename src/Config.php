@@ -18,6 +18,10 @@ class Config implements \ArrayAccess
     use ArrayTrait;
     use OptimizeTrait;
 
+    public const KEY_ENV = 'env';
+    public const KEY_CONFIG = 'config';
+    public const KEY_CACHE = 'cache';
+
     /**
      * @var array
      */
@@ -35,19 +39,40 @@ class Config implements \ArrayAccess
     private $cacheFolder;
     private $yaml;
 
-    public function __construct(string $folder, string $cacheFolder = null)
+    /**
+     * @var Env
+     */
+    public $env;
+
+    public function __construct(array $options)
     {
-        if (!\is_dir($err = $folder) || ($cacheFolder && !\is_dir($err = $cacheFolder))) {
-            throw new \InvalidArgumentException("Folder not exists '$err'");
+        if (!isset($options[self::KEY_CONFIG]) || !\is_dir($options[self::KEY_CONFIG])) {
+            throw new \InvalidArgumentException("Folder not exists '{$options[self::KEY_CONFIG]}'");
+        }
+        $this->folder = $options[self::KEY_CONFIG];
+
+        if (isset($options[self::KEY_CACHE]) && \is_dir($options[self::KEY_CACHE])) {
+            $this->cacheFolder = $options[self::KEY_CACHE];
         }
 
-        $this->folder = $folder;
-        $this->cacheFolder = $cacheFolder;
+        if (isset($options[self::KEY_ENV])) {
+            $this->env = new Env($options[self::KEY_ENV]);
+        }
 
         $this->items = new Dot([]);
 
-        static::optimizePrefix($folder);
+        static::optimizePrefix($this->folder);
         static::optimizeReader(['.yml', '.yaml'], [$this, 'loadYaml']);
+    }
+
+    /**
+     * @param string $name
+     *
+     * @return string|null
+     */
+    public function env(string $name): ?string
+    {
+        return $this->env->get($name);
     }
 
     /**
