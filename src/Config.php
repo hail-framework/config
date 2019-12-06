@@ -5,8 +5,7 @@ namespace Hail\Config;
 \defined('OPCACHE_INVALIDATE') || \define('OPCACHE_INVALIDATE', \function_exists('\opcache_invalidate'));
 
 use Hail\Optimize\OptimizeTrait;
-use Hail\Serializer\Yaml;
-use Hail\Arrays\{ArrayTrait, Arrays, Dot};
+use Hail\Arrays\{ArrayTrait, Dot};
 
 /**
  * Class Config
@@ -20,7 +19,7 @@ class Config implements \ArrayAccess
 
     public const KEY_ENV = 'env';
     public const KEY_CONFIG = 'config';
-    public const KEY_CACHE = 'cache';
+    public const KEY_LOADER = 'loader';
 
     /**
      * @var array
@@ -36,8 +35,11 @@ class Config implements \ArrayAccess
      * @var string
      */
     private $folder;
-    private $cacheFolder;
-    private $yaml;
+
+    /**
+     * @var LoaderInterface[]
+     */
+    private $loaders = [];
 
     /**
      * @var Env
@@ -49,20 +51,39 @@ class Config implements \ArrayAccess
         if (!isset($options[self::KEY_CONFIG]) || !\is_dir($options[self::KEY_CONFIG])) {
             throw new \InvalidArgumentException("Folder not exists '{$options[self::KEY_CONFIG]}'");
         }
-        $this->folder = $options[self::KEY_CONFIG];
 
-        if (isset($options[self::KEY_CACHE]) && \is_dir($options[self::KEY_CACHE])) {
-            $this->cacheFolder = $options[self::KEY_CACHE];
-        }
+        $this->folder = $options[self::KEY_CONFIG];
 
         if (isset($options[self::KEY_ENV])) {
             $this->env = new Env($options[self::KEY_ENV]);
         }
 
+        if (isset($options[self::KEY_LOADER])) {
+            if ($options[self::KEY_LOADER] instanceof LoaderInterface) {
+                $this->loaders = [$options[self::KEY_LOADER]];
+            } elseif (\is_array($options[self::KEY_LOADER])) {
+                foreach ($options[self::KEY_LOADER] as $loader) {
+                    if ($loader instanceof LoaderInterface) {
+                        $this->loaders[] = $loader;
+                    }
+                }
+            }
+        }
+
+        if ($this->loaders === []) {
+            $this->loaders = [new Loader\Php()];
+        }
+
         $this->items = new Dot([]);
 
         static::optimizePrefix($this->folder);
-        static::optimizeReader(['.yml', '.yaml'], [$this, 'loadYaml']);
+    }
+
+    public function addLoader(LoaderInterface $loader): self
+    {
+        $this->loaders[] = $loader;
+
+        return $this;
     }
 
     /**
@@ -96,7 +117,7 @@ class Config implements \ArrayAccess
     /**
      * Get the specified configuration value.
      *
-     * @param  string $key
+     * @param string $key
      *
      * @return mixed
      */
@@ -143,221 +164,18 @@ class Config implements \ArrayAccess
      */
     private function load(string $space): ?array
     {
-        $file = $this->getFile($space);
+        $space = $this->folder . DIRECTORY_SEPARATOR . $space;
 
-        if ($file === null) {
-            return null;
-        }
-
-        return static::optimizeLoad($file);
-    }
-
-    /**
-     * Parse a YAML file or load it from the cache
-     *
-     * @param string $file
-     *
-     * @return array|mixed
-     */
-    private function loadYaml(string $file)
-    {
-        if ($this->cacheFolder === null) {
-            $content = $this->decodeYaml($file);
-
-            return $this->parseArray($content);
-        }
-
-        $ext = \strrchr($file, '.');
-
-        $dir = $this->cacheFolder;
-        $filename = \basename($file);
-        $cache = $dir . DIRECTORY_SEPARATOR . \substr($filename, 0, -\strlen($ext)) . '.php';
-
-        if (@\filemtime($cache) < \filemtime($file)) {
-            $content = $this->decodeYaml($file);
-
-            if (!\is_dir($dir) && !@\mkdir($dir, 0755) && !\is_dir($dir)) {
-                throw new \RuntimeException('Temp directory permission denied');
-            }
-
-            \file_put_contents($cache, '<?php return ' . $this->parseArrayCode($content) . ';');
-
-            if (OPCACHE_INVALIDATE) {
-                \opcache_invalidate($cache, true);
-            }
-        }
-
-        return include $cache;
-    }
-
-    private function decodeYaml(string $file): array
-    {
-        if ($this->yaml === null) {
-            $this->yaml = Yaml::getInstance();
-        }
-
-        return $this->yaml->decode(
-            \file_get_contents($file)
-        );
-    }
-
-    private function parseArray(array $array): array
-    {
-        foreach ($array as &$v) {
-            if (\is_array($v)) {
-                $v = $this->parseArray($v);
-            } else {
-                $v = $this->parseValue($v);
-            }
-        }
-
-        return $array;
-    }
-
-    private function parseArrayCode(array $array, int $level = 0): string
-    {
-        $pad = '';
-        if ($level > 0) {
-            $pad = \str_repeat("\t", $level);
-        }
-
-        $isAssoc = Arrays::isAssoc($array);
-
-        $ret = '[' . "\n";
-        foreach ($array as $k => $v) {
-            $ret .= $pad . "\t";
-            if ($isAssoc) {
-                $ret .= \var_export($k, true) . ' => ';
-            }
-
-            if (\is_array($v)) {
-                $ret .= $this->parseArrayCode($v, $level + 1);
-            } else {
-                $ret .= $this->parseValueCode($v);
-            }
-
-            $ret .= ',' . "\n";
-        }
-
-        return $ret . $pad . ']';
-    }
-
-    private function parseValue($value)
-    {
-        if (!is_string($value)) {
-            return $value;
-        }
-
-        if (\preg_match('/%([a-zA-Z0-9_:\\\]+)(?::(.*))?%/', $value, $matches)) {
-            $function = $matches[1];
-
-            if (!\function_exists($function)) {
-                return $value;
-            }
-
-            if (!isset($matches[2])) {
-                return $function();
-            }
-
-            $args = \explode(',', $matches[2]);
-            foreach ($args as &$a) {
-                $a = $this->parseConstant(\trim($a));
-            }
-
-            return $function(...$args);
-        }
-
-        return $this->parseConstant($value);
-    }
-
-    /**
-     * Parse
-     *
-     * @param mixed $value
-     *
-     * @return string
-     */
-    private function parseValueCode($value): string
-    {
-        if ($value instanceof \DateTime) {
-            return 'new \\DateTime(' . \var_export($value->format('c'), true) . ')';
-        }
-
-        if (!\is_string($value)) {
-            return \var_export($value, true);
-        }
-
-        if (\preg_match('/%([a-zA-Z0-9_:\\\]+)(?::(.*))?%/', $value, $matches)) {
-            $function = $matches[1];
-
-            if (!\function_exists($function)) {
-                return \var_export($value, true);
-            }
-
-            if (!isset($matches[2])) {
-                return $function . '()';
-            }
-
-            $args = \explode(',', $matches[2]);
-            foreach ($args as &$a) {
-                $a = $this->parseConstantCode(\trim($a));
-            }
-
-            return $function . '(' . \implode(', ', $args) . ')';
-        }
-
-        return $this->parseConstantCode($value);
-    }
-
-    private function parseConstant(string $value): string
-    {
-        return \preg_replace_callback('/\${([a-zA-Z0-9_:\\\]+)}/', static function ($matches) {
-            return \defined($matches[1]) ? \constant($matches[1]) : $matches[0];
-        }, $value);
-    }
-
-    private function parseConstantCode(string $value): string
-    {
-        $value = \var_export($value, true);
-
-        \preg_match_all('/\${([a-zA-Z0-9_:\\\]+)}/', $value, $matches);
-
-        if (!empty($matches[0])) {
-            $replace = [];
-            foreach ($matches[0] as $k => $v) {
-                $replace[$v] = '\' . ' . \str_replace('\\\\', '\\', $matches[1][$k]) . ' . \'';
-            }
-
-            if ($replace !== []) {
-                $value = \strtr($value, $replace);
-
-                $start = 0;
-                if (\strpos($value, "'' . ") === 0) {
-                    $start = 5;
+        foreach ($this->loaders as $loader) {
+            $file = $loader->find($space);
+            if ($file !== null) {
+                $data = static::optimizeGet($space, $file);
+                if ($data === false) {
+                    $data = $loader->load($file);
+                    static::optimizeSet($space, $data, $file);
                 }
 
-                $end = null;
-                if (\strrpos($value, " . ''", 5) > 0) {
-                    $end = -5;
-                }
-
-                if ($end !== null) {
-                    $value = \substr($value, $start, $end);
-                } elseif ($start !== 0) {
-                    $value = \substr($value, $start);
-                }
-            }
-        }
-
-        return $value;
-    }
-
-    private function getFile(string $space): ?string
-    {
-        foreach (['.php', '.yml', '.yaml'] as $ext) {
-            $real = $this->folder . DIRECTORY_SEPARATOR . $space . $ext;
-            if (\file_exists($real)) {
-                return $real;
+                return $data;
             }
         }
 
@@ -366,14 +184,17 @@ class Config implements \ArrayAccess
 
     public function modifyTime(string $key): ?int
     {
-        $file = $this->getFile(
-            \explode('.', $key, 2)[0]
-        );
+        $space = \explode('.', $key, 2)[0];
 
-        if ($file === null) {
-            return null;
+        $space = $this->folder . DIRECTORY_SEPARATOR . $space;
+
+        foreach ($this->loaders as $loader) {
+            $file = $loader->find($space);
+            if ($file !== null) {
+                return \filemtime($file);
+            }
         }
 
-        return \filemtime($file);
+        return null;
     }
 }
