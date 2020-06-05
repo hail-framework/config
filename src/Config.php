@@ -17,9 +17,9 @@ class Config implements \ArrayAccess
     use ArrayTrait;
     use OptimizeTrait;
 
-    public const KEY_ENV = 'env';
-    public const KEY_CONFIG = 'config';
-    public const KEY_LOADER = 'loader';
+    public const ENV = 'env';
+    public const CONFIG = 'config';
+    public const LOADERS = 'loaders';
 
     /**
      * @var array
@@ -48,21 +48,21 @@ class Config implements \ArrayAccess
 
     public function __construct(array $options)
     {
-        if (!isset($options[self::KEY_CONFIG]) || !\is_dir($options[self::KEY_CONFIG])) {
-            throw new \InvalidArgumentException("Folder not exists '{$options[self::KEY_CONFIG]}'");
+        if (!isset($options[self::CONFIG]) || !\is_dir($options[self::CONFIG])) {
+            throw new \InvalidArgumentException("Folder not exists '{$options[self::CONFIG]}'");
         }
 
-        $this->folder = $options[self::KEY_CONFIG];
+        $this->folder = $options[self::CONFIG];
 
-        if (isset($options[self::KEY_ENV])) {
-            $this->env = new Env($options[self::KEY_ENV]);
+        if (isset($options[self::ENV])) {
+            $this->env = new Env($options[self::ENV]);
         }
 
-        if (isset($options[self::KEY_LOADER])) {
-            if ($options[self::KEY_LOADER] instanceof LoaderInterface) {
-                $this->loaders = [$options[self::KEY_LOADER]];
-            } elseif (\is_array($options[self::KEY_LOADER])) {
-                foreach ($options[self::KEY_LOADER] as $loader) {
+        if (isset($options[self::LOADERS])) {
+            if ($options[self::LOADERS] instanceof LoaderInterface) {
+                $this->loaders = [$options[self::LOADERS]];
+            } elseif (\is_array($options[self::LOADERS])) {
+                foreach ($options[self::LOADERS] as $loader) {
                     if ($loader instanceof LoaderInterface) {
                         $this->loaders[] = $loader;
                     }
