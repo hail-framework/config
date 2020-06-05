@@ -16,6 +16,10 @@ class Json implements LoaderInterface
 
     protected function decode(string $file): array
     {
+        if (!$this->support($file)) {
+            throw new \InvalidArgumentException('The file is not supported');
+        }
+
         $json = JsonSerializer::getInstance();
 
         return $json->decode(

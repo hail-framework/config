@@ -17,6 +17,10 @@ class Yaml implements LoaderInterface
 
     protected function decode(string $file): array
     {
+        if (!$this->support($file)) {
+            throw new \InvalidArgumentException('The file is not supported');
+        }
+
         $yaml = YamlSerializer::getInstance();
 
         return $yaml->decode(

@@ -75,8 +75,6 @@ class Config implements \ArrayAccess
         }
 
         $this->items = new Dot([]);
-
-        static::optimizePrefix($this->folder);
     }
 
     public function addLoader(LoaderInterface $loader): self
@@ -87,7 +85,9 @@ class Config implements \ArrayAccess
     }
 
     /**
-     * @param string $name
+     * @param sif (!$this->support($file)) {
+    throw new \InvalidArgumentException('The file is not supported');
+    }tring $name
      *
      * @return string|null|Env
      */
@@ -169,13 +169,7 @@ class Config implements \ArrayAccess
         foreach ($this->loaders as $loader) {
             $file = $loader->find($space);
             if ($file !== null) {
-                $data = static::optimizeGet($space, $file);
-                if ($data === false) {
-                    $data = $loader->load($file);
-                    static::optimizeSet($space, $data, $file);
-                }
-
-                return $data;
+                return $this->optimize()->load($file, [$loader, 'load']);
             }
         }
 
