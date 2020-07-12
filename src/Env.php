@@ -2,6 +2,8 @@
 
 namespace Hail\Config;
 
+use Hail\Config\Loader\Ini;
+
 \defined('FUNCTION_PUTENV') || \define('FUNCTION_PUTENV', \function_exists('\putenv'));
 \defined('FUNCTION_APACHE_SETENV') || \define('FUNCTION_APACHE_SETENV', \function_exists('\apache_setenv'));
 \defined('FUNCTION_APACHE_GETENV') || \define('FUNCTION_APACHE_GETENV', \function_exists('\apache_getenv'));

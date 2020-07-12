@@ -1,16 +1,17 @@
 <?php
 
+
 namespace Hail\Config\Loader;
 
 use Hail\Config\LoaderInterface;
 
-class Json implements LoaderInterface
+class Ini implements LoaderInterface
 {
     use Traits\TextLoader;
 
     public function ext(): array
     {
-        return ['.json'];
+        return ['.ini'];
     }
 
     protected function decode(string $file): array
@@ -19,8 +20,6 @@ class Json implements LoaderInterface
             throw new \InvalidArgumentException('The file is not supported');
         }
 
-        return \json_decode(
-            \file_get_contents($file), true
-        );
+        return \parse_ini_file($file, false, INI_SCANNER_TYPED);
     }
 }

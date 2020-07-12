@@ -5,15 +5,13 @@ namespace Hail\Config\Loader;
 
 use Hail\Config\LoaderInterface;
 
-\defined('YAML_EXTENSION') || \define('YAML_EXTENSION', \extension_loaded('yaml'));
-
-class Yaml implements LoaderInterface
+class Toml implements LoaderInterface
 {
     use Traits\TextLoader;
 
     public function ext(): array
     {
-        return ['.yml', '.yaml'];
+        return ['.toml'];
     }
 
     protected function decode(string $file): array
@@ -26,10 +24,10 @@ class Yaml implements LoaderInterface
             return \yaml_parse_file($file);
         }
 
-        if (!\class_exists(\Symfony\Component\Yaml\Yaml::class)) {
-            throw new \RuntimeException('"symfony/yaml" is required to parse YAML files.');
+        if (!\class_exists(\Yosymfony\Toml\Toml::class)) {
+            throw new \RuntimeException('"yosymfony/toml" is required to parse TOML files.');
         }
 
-        return \Symfony\Component\Yaml\Yaml::parseFile($file);
+        return \Yosymfony\Toml\Toml::parseFile($file);
     }
 }

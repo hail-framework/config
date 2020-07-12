@@ -168,7 +168,7 @@ trait TextLoader
 
     private static function getConstant(array $matches): string
     {
-        return \defined($matches[1]) ? \constant($matches[1]) : $matches[0];
+        return \defined($matches[1]) ? $matches[1] : $matches[0];
     }
 
     private static function parseConstantCode(string $value): string
