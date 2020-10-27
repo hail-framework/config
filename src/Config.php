@@ -24,7 +24,7 @@ class Config implements \ArrayAccess
     /**
      * @var array
      */
-    private $items = [];
+    private $items;
 
     /**
      * @var array

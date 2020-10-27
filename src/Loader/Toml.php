@@ -20,10 +20,6 @@ class Toml implements LoaderInterface
             throw new \InvalidArgumentException('The file is not supported');
         }
 
-        if (YAML_EXTENSION) {
-            return \yaml_parse_file($file);
-        }
-
         if (!\class_exists(\Yosymfony\Toml\Toml::class)) {
             throw new \RuntimeException('"yosymfony/toml" is required to parse TOML files.');
         }
