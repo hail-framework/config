@@ -22,7 +22,7 @@
   "license": "MIT",
   "require": {
     "php": ">=8.0.0",
-    "hail/arrays": "^0.9.3",
+    "hail/arrays": "^0.10.0",
     "hail/optimize": "^0.10.0"
   },
   "require-dev": {
