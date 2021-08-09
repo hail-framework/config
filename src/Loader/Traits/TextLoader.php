@@ -2,13 +2,15 @@
 
 namespace Hail\Config\Loader\Traits;
 
+\defined('OPCACHE_INVALIDATE') || \define('OPCACHE_INVALIDATE', \function_exists('\opcache_invalidate'));
+
 use Hail\Arrays\Arrays;
 
 trait TextLoader
 {
     use Loader;
 
-    private $cacheDir;
+    private ?string $cacheDir = null;
 
     public function __construct(string $cacheDir = null)
     {
@@ -40,7 +42,7 @@ trait TextLoader
             $content = $this->decode($file);
 
             if (!\is_dir($this->cacheDir) && !@\mkdir($this->cacheDir, 0755) && !\is_dir($this->cacheDir)) {
-                throw new \RuntimeException('Temp directory permission denied');
+                throw new \RuntimeException('Cache directory permission denied');
             }
 
             \file_put_contents($cache, '<?php return ' . self::parseArrayCode($content) . ';');
@@ -187,7 +189,7 @@ trait TextLoader
                 $value = \strtr($value, $replace);
 
                 $start = 0;
-                if (\strpos($value, "'' . ") === 0) {
+                if (\str_starts_with($value, "'' . ")) {
                     $start = 5;
                 }
 

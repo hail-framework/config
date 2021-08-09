@@ -4,6 +4,7 @@
 namespace Hail\Config\Loader;
 
 use Hail\Config\LoaderInterface;
+use Symfony\Component\Yaml\Yaml as SYaml;
 
 \defined('YAML_EXTENSION') || \define('YAML_EXTENSION', \extension_loaded('yaml'));
 
@@ -26,10 +27,10 @@ class Yaml implements LoaderInterface
             return \yaml_parse_file($file);
         }
 
-        if (!\class_exists(\Symfony\Component\Yaml\Yaml::class)) {
+        if (!\class_exists(SYaml::class)) {
             throw new \RuntimeException('"symfony/yaml" is required to parse YAML files.');
         }
 
-        return \Symfony\Component\Yaml\Yaml::parseFile($file);
+        return SYaml::parseFile($file);
     }
 }

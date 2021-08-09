@@ -2,8 +2,6 @@
 
 namespace Hail\Config;
 
-use Hail\Config\Loader\Ini;
-
 \defined('FUNCTION_PUTENV') || \define('FUNCTION_PUTENV', \function_exists('\putenv'));
 \defined('FUNCTION_APACHE_SETENV') || \define('FUNCTION_APACHE_SETENV', \function_exists('\apache_setenv'));
 \defined('FUNCTION_APACHE_GETENV') || \define('FUNCTION_APACHE_GETENV', \function_exists('\apache_getenv'));
@@ -16,38 +14,17 @@ use Hail\Config\Loader\Ini;
  */
 class Env
 {
-    public const FILE = '.env';
+    private array $loaded = [];
 
-    private $loaded = [];
+    protected array $names = [];
 
-    protected $immutable = false;
-
-    protected $names = [];
-
-    public function __construct($files)
+    public function __construct(string $path)
     {
-        $files = (array) $files;
-
-        foreach ($files as $v) {
-            if (\is_dir($v)) {
-                $v .= DIRECTORY_SEPARATOR . self::FILE;
-            }
-
-            $this->load($v);
+        if (!\is_dir($path)) {
+            throw new \InvalidArgumentException("'$path' is not exists");
         }
-    }
 
-    public function withImmutable(): self
-    {
-        $new = clone $this;
-        $new->immutable = true;
-
-        return $new;
-    }
-
-    public function isImmutable(): bool
-    {
-        return $this->immutable;
+        $this->load($path . DIRECTORY_SEPARATOR . '.env');
     }
 
     public function load(string $file): self
@@ -56,7 +33,7 @@ class Env
             return $this;
         }
 
-        $array = \parse_ini_file($file, false, INI_SCANNER_TYPED);
+        $array = \parse_ini_file($file, scanner_mode: INI_SCANNER_TYPED);
 
         foreach ($array as $name => $value) {
             $this->set($name, $value);
@@ -73,11 +50,6 @@ class Env
      * @return string|null
      */
     public function get(string $name): ?string
-    {
-        return static::getenv($name);
-    }
-
-    public static function getenv(string $name): ?string
     {
         if (isset($_ENV[$name])) {
             return $_ENV[$name];
@@ -96,17 +68,14 @@ class Env
     {
         $name = \trim($name);
 
-        if ($this->immutable && $this->get($name) !== null) {
-            return;
-        }
-
         $this->names[] = $name;
         $value = \trim($value);
 
         // If PHP is running as an Apache module and an existing
         // Apache environment variable exists, overwrite it
         if (
-            FUNCTION_APACHE_SETENV && FUNCTION_APACHE_GETENV &&
+            FUNCTION_APACHE_SETENV &&
+            FUNCTION_APACHE_GETENV &&
             \apache_getenv($name) !== false
         ) {
             \apache_setenv($name, $value);
@@ -122,10 +91,6 @@ class Env
 
     public function clear($name): self
     {
-        if ($this->immutable) {
-            return $this;
-        }
-
         if (FUNCTION_PUTENV) {
             \putenv($name);
         }
@@ -137,10 +102,6 @@ class Env
 
     public function reset(): self
     {
-        if ($this->immutable) {
-            return $this;
-        }
-
         $old = $this->names;
         $loaded = \array_unique($this->loaded);
         $this->loaded = $this->names = [];

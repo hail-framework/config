@@ -19,8 +19,6 @@ class Json implements LoaderInterface
             throw new \InvalidArgumentException('The file is not supported');
         }
 
-        return \json_decode(
-            \file_get_contents($file), true
-        );
+        return \json_decode(\file_get_contents($file), flags: JSON_OBJECT_AS_ARRAY | JSON_THROW_ON_ERROR);
     }
 }

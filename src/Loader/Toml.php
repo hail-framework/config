@@ -4,6 +4,7 @@
 namespace Hail\Config\Loader;
 
 use Hail\Config\LoaderInterface;
+use Yosymfony\Toml\Toml as YToml;
 
 class Toml implements LoaderInterface
 {
@@ -20,10 +21,10 @@ class Toml implements LoaderInterface
             throw new \InvalidArgumentException('The file is not supported');
         }
 
-        if (!\class_exists(\Yosymfony\Toml\Toml::class)) {
+        if (!\class_exists(YToml::class)) {
             throw new \RuntimeException('"yosymfony/toml" is required to parse TOML files.');
         }
 
-        return \Yosymfony\Toml\Toml::parseFile($file);
+        return YToml::parseFile($file);
     }
 }

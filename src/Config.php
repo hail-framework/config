@@ -2,10 +2,8 @@
 
 namespace Hail\Config;
 
-\defined('OPCACHE_INVALIDATE') || \define('OPCACHE_INVALIDATE', \function_exists('\opcache_invalidate'));
-
 use Hail\Optimize\OptimizeTrait;
-use Hail\Arrays\{ArrayTrait, Dot};
+use Hail\Arrays\{ArrayAccessTrait, Dot};
 
 /**
  * Class Config
@@ -14,67 +12,67 @@ use Hail\Arrays\{ArrayTrait, Dot};
  */
 class Config implements \ArrayAccess
 {
-    use ArrayTrait;
+    use ArrayAccessTrait;
     use OptimizeTrait;
 
-    public const ENV = 'env';
-    public const CONFIG = 'config';
-    public const LOADERS = 'loaders';
+    private Dot $items;
 
-    /**
-     * @var array
-     */
-    private $items;
+    private array $cache = [];
 
-    /**
-     * @var array
-     */
-    private $cache = [];
-
-    /**
-     * @var string
-     */
-    private $folder;
+    private string $folder;
 
     /**
      * @var LoaderInterface[]
      */
-    private $loaders = [];
+    private array $loaders = [];
 
-    /**
-     * @var Env
-     */
-    public $env;
+    public Env $env;
 
-    public function __construct(array $options)
+    public function __construct(string|array $path, array $loaders = null)
     {
-        if (!isset($options[self::CONFIG]) || !\is_dir($options[self::CONFIG])) {
-            throw new \InvalidArgumentException("Folder not exists '{$options[self::CONFIG]}'");
+        if (\is_string($path)) {
+            $envPath = $path;
+
+        } else {
+            [
+                'env' => $envPath,
+                'config' => $configPath,
+            ] = $path;
         }
 
-        $this->folder = $options[self::CONFIG];
+        $this->env = new Env($envPath);
 
-        if (isset($options[self::ENV])) {
-            $this->env = new Env($options[self::ENV]);
+        $configPath ??= $envPath . DIRECTORY_SEPARATOR . 'config';
+        if (!\is_dir($configPath)) {
+            throw new \InvalidArgumentException("'$configPath' is not exists");
         }
+        $this->folder = $configPath;
 
-        if (isset($options[self::LOADERS])) {
-            if ($options[self::LOADERS] instanceof LoaderInterface) {
-                $this->loaders = [$options[self::LOADERS]];
-            } elseif (\is_array($options[self::LOADERS])) {
-                foreach ($options[self::LOADERS] as $loader) {
-                    if ($loader instanceof LoaderInterface) {
-                        $this->loaders[] = $loader;
-                    }
+        if ($loaders !== null) {
+            foreach ($loaders as $loader) {
+                if ($loader instanceof LoaderInterface) {
+                    $this->loaders[] = $loader;
                 }
             }
         }
 
         if ($this->loaders === []) {
-            $this->loaders = [new Loader\Php()];
+            $this->loaders[] = new Loader\Php();
         }
 
         $this->items = new Dot([]);
+    }
+
+    public static function loader(string $type, string $cachePath = null): LoaderInterface
+    {
+        return match ($type) {
+            'yaml' => new Loader\Yaml($cachePath),
+            'toml' => new Loader\Toml($cachePath),
+            'json' => new Loader\Json($cachePath),
+            'ini' => new Loader\Ini($cachePath),
+            'php' => new Loader\Php(),
+            default => throw new \RuntimeException("'$type' loader not supported"),
+        };
     }
 
     public function addLoader(LoaderInterface $loader): self
@@ -84,44 +82,18 @@ class Config implements \ArrayAccess
         return $this;
     }
 
-    /**
-     * @param sif (!$this->support($file)) {
-    throw new \InvalidArgumentException('The file is not supported');
-    }tring $name
-     *
-     * @return string|null|Env
-     */
-    public function env(string $name = null)
+    public function env(string $name = null): ?string
     {
-        if ($name === null) {
-            return $this->env;
-        }
-
-        if ($this->env === null) {
-            return Env::getenv($name);
-        }
-
         return $this->env->get($name);
     }
 
-    /**
-     * @param string $key
-     * @param mixed  $value
-     */
-    public function set(string $key, $value): void
+    public function set(string $key, mixed $value): void
     {
-        $this->items[$key] = $value;
+        $this->items->set($key, $value);
         $this->cache = [];
     }
 
-    /**
-     * Get the specified configuration value.
-     *
-     * @param string $key
-     *
-     * @return mixed
-     */
-    public function get(string $key)
+    public function get(string $key): mixed
     {
         if ($key === '' || $key === '.') {
             return null;
@@ -131,16 +103,16 @@ class Config implements \ArrayAccess
             return $this->cache[$key];
         }
 
-        $found = $this->items[$key];
+        $found = $this->items->get($key);
 
         if ($found === null) {
             [$space] = $split = \explode('.', $key, 2);
 
-            if (!isset($this->items[$space]) && ($found = $this->load($space)) !== null) {
-                $this->items[$space] = $found;
+            if (!$this->items->has($space) && ($found = $this->load($space)) !== null) {
+                $this->items->set($space, $found);
 
                 if (isset($split[1])) {
-                    $found = $this->items[$key];
+                    $found = $this->items->get($key);
                 }
             }
         }
@@ -148,19 +120,19 @@ class Config implements \ArrayAccess
         return $this->cache[$key] = $found;
     }
 
+    public function has(string $key): bool
+    {
+        return $this->get($key) !== null;
+    }
+
     public function delete(string $key): void
     {
-        unset($this->items[$key]);
+        $this->items->delete($key);
         $this->cache = [];
     }
 
     /**
      * Read config array from cache or file
-     * Extensions order: php > yml > yaml
-     *
-     * @param string $space
-     *
-     * @return array|null
      */
     private function load(string $space): ?array
     {

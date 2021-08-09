@@ -31,19 +31,20 @@ return [
 ```php
 use Hail\Config\Env
 
-$env = new Env(__DIR__ . DIRECTORY_SEPARATOR . Env::FILE);
+$env = new Env(__DIR__);
 $env->get('ENVIRONMENT');
 
 use Hail\Config\Config;
 
-$config = new Config([
-    Config::ENV => __DIR__ . DIRECTORY_SEPARATOR . Env::FILE, // env files
-    Config::CONFIG => __DIR__ . DIRECTORY_SEPARATOR . 'config', // config file dir
-    Config::LOADERS => [
-        new Hail\Config\Loader\Yaml(__DIR__ . DIRECTORY_SEPARATOR . 'cache'),
-        new Hail\Config\Loader\Json(__DIR__ . DIRECTORY_SEPARATOR . 'cache'),
-    ], // default loader is Hail\Config\Loader\Php 
-]);
+$cachePath = __DIR__ . DIRECTORY_SEPARATOR . 'cache';
+$options = [
+    'path' => __DIR__, // same as 'path' => ['env' => __DIR__, 'config' => __DIR__ . DIRECTORY_SEPARATOR . 'config'],
+    'loaders' => [  // if empty, the default loader is Hail\Config\Loader\Php 
+        Config::loader('yaml', $cachePath),
+        Config::loader('json', $cachePath)
+    ]
+];
+$config = new Config(...$options);
 
 $config->addLoader(
     new Hail\Config\Loader\Php()
