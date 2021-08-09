@@ -120,11 +120,6 @@ class Config implements \ArrayAccess
         return $this->cache[$key] = $found;
     }
 
-    public function has(string $key): bool
-    {
-        return $this->get($key) !== null;
-    }
-
     public function delete(string $key): void
     {
         $this->items->delete($key);
